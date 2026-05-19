@@ -1,0 +1,63 @@
+# ============================================================
+# DATABRICKS WORKFLOW — Meta Ads ETL Pipeline Orchestration
+# ============================================================
+# Import this JSON into Databricks Workflows UI
+# Workflows → Create Job → Edit JSON → Paste below
+# ============================================================
+
+{
+  "name": "Meta_Ads_ETL_Pipeline",
+  "schedule": {
+    "quartz_cron_expression": "0 0 6 * * ?",
+    "timezone_id": "Asia/Kolkata",
+    "pause_status": "UNPAUSED"
+  },
+  "tasks": [
+    {
+      "task_key": "bronze_ingestion",
+      "description": "Ingest raw Meta Ads data into Bronze Delta Table",
+      "notebook_task": {
+        "notebook_path": "/Repos/meta_ads_pipeline/bronze/ingest_raw_meta_ads",
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "meta_ads_cluster"
+    },
+    {
+      "task_key": "silver_transformation",
+      "description": "Clean, transform and compute KPI metrics",
+      "depends_on": [{ "task_key": "bronze_ingestion" }],
+      "notebook_task": {
+        "notebook_path": "/Repos/meta_ads_pipeline/silver/transform_meta_ads",
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "meta_ads_cluster"
+    },
+    {
+      "task_key": "gold_kpi_tables",
+      "description": "Build business KPI aggregations and Gold tables",
+      "depends_on": [{ "task_key": "silver_transformation" }],
+      "notebook_task": {
+        "notebook_path": "/Repos/meta_ads_pipeline/gold/gold_kpi_tables",
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "meta_ads_cluster"
+    }
+  ],
+  "job_clusters": [
+    {
+      "job_cluster_key": "meta_ads_cluster",
+      "new_cluster": {
+        "spark_version": "13.3.x-scala2.12",
+        "node_type_id": "Standard_DS3_v2",
+        "num_workers": 2,
+        "spark_conf": {
+          "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
+          "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        }
+      }
+    }
+  ],
+  "email_notifications": {
+    "on_failure": ["your_email@example.com"]
+  }
+}
